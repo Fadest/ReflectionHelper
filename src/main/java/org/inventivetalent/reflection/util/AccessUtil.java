@@ -1,8 +1,9 @@
 package org.inventivetalent.reflection.util;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
-import java.lang.reflect.*;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
@@ -13,8 +14,6 @@ public abstract class AccessUtil {
 
     public static final boolean VERBOSE = System.getProperties().containsKey("org_inventivetalent_reflection_verbose");
 
-    private static final Object modifiersVarHandle;
-    private static final Field modifiersField;
 
     /**
      * Sets the field accessible and removes final modifiers
@@ -35,7 +34,7 @@ public abstract class AccessUtil {
     private static Field setAccessible(Field field, boolean readOnly, boolean privileged) throws ReflectiveOperationException {
         try {
             field.setAccessible(true);
-        } catch (InaccessibleObjectException e) {
+        } catch (SecurityException e) {
             if (VERBOSE) {
                 System.err.println("field.setAccessible");
                 e.printStackTrace();
@@ -118,11 +117,6 @@ public abstract class AccessUtil {
     private static void removeFinalVarHandle(Field field) throws ReflectiveOperationException {
         int modifiers = field.getModifiers();
         int newModifiers = modifiers & ~Modifier.FINAL;
-        if (modifiersVarHandle != null) {
-            ((VarHandle) modifiersVarHandle).set(field, newModifiers);
-        } else {
-            modifiersField.setInt(field, newModifiers);
-        }
     }
 
     private static void removeFinalNativeDeclaredFields(Field field) throws ReflectiveOperationException {
@@ -169,35 +163,5 @@ public abstract class AccessUtil {
         return constructor;
     }
 
-    private static Object initModifiersVarHandle() {
-        try {
-            VarHandle.class.getName(); // Makes this method fail-fast on JDK 8
-            return MethodHandles.privateLookupIn(Field.class, MethodHandles.lookup())
-                    .findVarHandle(Field.class, "modifiers", int.class);
-        } catch (IllegalAccessException | NoClassDefFoundError | NoSuchFieldException e) {
-            if (VERBOSE) {
-                e.printStackTrace();
-            }
-        }
-        return null;
-    }
-
-    private static Field initModifiersField() {
-        try {
-            Field modifiersField = Field.class.getDeclaredField("modifiers");
-            modifiersField.setAccessible(true);
-            return modifiersField;
-        } catch (NoSuchFieldException ignored) {}
-        return null;
-    }
-
-    static {
-        if (VERBOSE) {
-            System.out.println("[ReflectionHelper] Verbose mode enabled");
-        }
-
-        modifiersVarHandle = initModifiersVarHandle();
-        modifiersField = initModifiersField();
-    }
 
 }
